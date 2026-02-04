@@ -1,24 +1,60 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Dashboard</title>
+  <title>Dashboard - Amazon Review Analysis</title>
   <link rel="stylesheet" href="/static/style.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 <body>
-  <h1>📊 Dashboard</h1>
+  <div class="container">
+    <header>
+      <h1>Analytics Dashboard</h1>
+      <p class="subtitle">Sentiment analysis and review statistics</p>
+    </header>
 
-  <div class="links">
-    <a href="/">🏠 Home</a>
-    <a href="/reviews">📄 Reviews</a>
+    <nav class="nav-bar">
+      <a href="/" class="nav-btn">Home</a>
+      <a href="/products" class="nav-btn">Products</a>
+      <a href="/reviews" class="nav-btn">Reviews</a>
+      <a href="/dashboard" class="nav-btn active">Dashboard</a>
+    </nav>
+
+    <div class="main-content">
+      {% if stats %}
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-value">{{ stats.total }}</div>
+            <div class="stat-label">Total Reviews</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value">{{ stats.positive }}</div>
+            <div class="stat-label">Positive Reviews</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value">{{ stats.neutral }}</div>
+            <div class="stat-label">Neutral Reviews</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value">{{ stats.negative }}</div>
+            <div class="stat-label">Negative Reviews</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value">{{ "%.1f"|format(stats.avg_rating) }}</div>
+            <div class="stat-label">Average Rating</div>
+          </div>
+        </div>
+      {% else %}
+        <div class="empty-state">
+          <h2>No Data Available</h2>
+          <p>Analyze some products to see statistics here.</p>
+          <a href="/" class="btn-primary">Analyze Product</a>
+        </div>
+      {% endif %}
+    </div>
+
+    <footer>
+      <p>College Project: Web Scraping & Sentiment Analysis for Business Intelligence</p>
+    </footer>
   </div>
-
-  <div class="card">
-    <p><b>Total Reviews:</b> {{ stats.total }}</p>
-    <p><b>✅ Positive:</b> {{ stats.positive }}</p>
-    <p><b>⚠️ Neutral:</b> {{ stats.neutral }}</p>
-    <p><b>❌ Negative:</b> {{ stats.negative }}</p>
-    <p><b>⭐ Avg Rating:</b> {{ stats.avg_rating }}</p>
-  </div>
-
 </body>
 </html>

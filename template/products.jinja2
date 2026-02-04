@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Products - Amazon Review Analysis</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Analyzed Products</h1>
+      <p class="subtitle">Products that have been scraped and analyzed</p>
+    </header>
+
+    <nav class="nav-bar">
+      <a href="/" class="nav-btn">Home</a>
+      <a href="/products" class="nav-btn active">Products</a>
+      <a href="/reviews" class="nav-btn">Reviews</a>
+      <a href="/dashboard" class="nav-btn">Dashboard</a>
+    </nav>
+
+    <div class="main-content">
+      {% if products %}
+        <div class="products-grid">
+          {% for product in products %}
+            <div class="product-card">
+              <div class="product-image">
+                {% if product.product_image %}
+                  <img src="{{ product.product_image }}" alt="{{ product.product_name }}" loading="lazy">
+                {% else %}
+                  <div class="no-image">No Image</div>
+                {% endif %}
+              </div>
+              <div class="product-info">
+                <h3>{{ product.product_name }}</h3>
+                <div class="product-price">{{ product.product_price }}</div>
+                <div class="product-stats">
+                  <span class="review-count">{{ product.review_count }} Reviews Analyzed</span>
+                </div>
+                <div class="product-actions">
+                  <a href="{{ product.product_url }}" target="_blank" class="btn-secondary">View on Amazon</a>
+                </div>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="empty-state">
+          <h2>No Products Analyzed Yet</h2>
+          <p>Start by analyzing your first Amazon product!</p>
+          <a href="/" class="btn-primary">Analyze Product</a>
+        </div>
+      {% endif %}
+    </div>
+
+    <footer>
+      <p>College Project: Web Scraping & Sentiment Analysis for Business Intelligence</p>
+    </footer>
+  </div>
+</body>
+</html>

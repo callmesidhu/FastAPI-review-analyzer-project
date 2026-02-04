@@ -4,7 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from configs.database import init_db, get_db
-from services.scraper import scrape_reviews
+from services.scraper import scrape_reviews, extract_product_details
 from services.sentiment import analyze_sentiment
 from services.stats import calculate_stats
 
@@ -26,21 +26,55 @@ def index(request: Request):
 
 @app.post("/scrape")
 def scrape(
-    url: str = Form(...),
-    product_name: str = Form("Amazon Product")
+    url: str = Form(...)
 ):
     try:
-        print(f"🔍 Starting scrape for: {product_name}")
-        print(f"🔗 URL: {url}")
-        
-        raw_reviews = scrape_reviews(url=url, product_name=product_name, limit=10)
-        
-        if not raw_reviews:
-            print("⚠️ No reviews found")
-            return RedirectResponse(url="/reviews?error=no_reviews", status_code=303)
+        # Fix URL if it doesn't have protocol
+        if not url.startswith(('http://', 'https://')):
+            url = 'https://' + url
+            
+        print(f"Starting analysis for URL: {url}")
         
         conn = get_db()
         cursor = conn.cursor()
+        
+        # Check if product already exists
+        cursor.execute("SELECT product_id, product_name FROM products WHERE product_url = ?", (url,))
+        existing_product = cursor.fetchone()
+        
+        if existing_product:
+            print(f"Product already exists: {existing_product['product_name']}")
+            conn.close()
+            return RedirectResponse(url="/reviews?message=product_exists", status_code=303)
+        
+        # Extract product details
+        product_details = extract_product_details(url)
+        
+        # Insert product into database
+        cursor.execute("""
+            INSERT INTO products (product_name, product_url, product_image, product_price)
+            VALUES (?, ?, ?, ?)
+        """, (
+            product_details["product_name"],
+            product_details["product_url"],
+            product_details["product_image"],
+            product_details["product_price"]
+        ))
+        
+        # Get the product_id of the inserted product
+        cursor.execute("SELECT product_id FROM products WHERE product_url = ?", (url,))
+        product_record = cursor.fetchone()
+        product_id = product_record["product_id"]
+        
+        print(f"Product saved with ID: {product_id}")
+        
+        # Scrape reviews
+        raw_reviews = scrape_reviews(url=url, product_id=product_id, limit=10)
+        
+        if not raw_reviews:
+            print("No reviews found")
+            conn.close()
+            return RedirectResponse(url="/reviews?error=no_reviews", status_code=303)
         
         saved_count = 0
         for r in raw_reviews:
@@ -48,10 +82,10 @@ def scrape(
                 sentiment, polarity = analyze_sentiment(r["review_text"])
                 
                 cursor.execute("""
-                    INSERT INTO reviews (product_name, review_title, review_text, rating, sentiment, polarity)
+                    INSERT INTO reviews (product_id, review_title, review_text, rating, sentiment, polarity)
                     VALUES (?, ?, ?, ?, ?, ?)
                 """, (
-                    r["product_name"],
+                    r["product_id"],
                     r["review_title"],
                     r["review_text"],
                     r["rating"],
@@ -59,20 +93,22 @@ def scrape(
                     polarity
                 ))
                 saved_count += 1
-                print(f"💾 Saved review: {r['review_title'][:30]}...")
+                print(f"Saved review: {r['review_title'][:30]}...")
                 
             except Exception as e:
-                print(f"❌ Error saving review: {str(e)}")
+                print(f"Error saving review: {str(e)}")
                 continue
         
         conn.commit()
         conn.close()
         
-        print(f"✅ Successfully saved {saved_count} reviews to database")
+        print(f"Successfully saved product and {saved_count} reviews to database")
         return RedirectResponse(url="/reviews", status_code=303)
         
     except Exception as e:
-        print(f"❌ Error in scrape route: {str(e)}")
+        print(f"Error in scrape route: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return RedirectResponse(url="/reviews?error=scrape_failed", status_code=303)
 
 
@@ -81,7 +117,12 @@ def reviews_page(request: Request):
     conn = get_db()
     cursor = conn.cursor()
 
-    cursor.execute("SELECT * FROM reviews ORDER BY id DESC")
+    cursor.execute("""
+        SELECT r.*, p.product_name, p.product_image, p.product_price 
+        FROM reviews r 
+        LEFT JOIN products p ON r.product_id = p.product_id 
+        ORDER BY r.id DESC
+    """)
     reviews = cursor.fetchall()
 
     conn.close()
@@ -89,12 +130,34 @@ def reviews_page(request: Request):
     return templates.TemplateResponse("reviews.jinja2", {"request": request, "reviews": reviews})
 
 
+@app.get("/products", response_class=HTMLResponse)
+def products_page(request: Request):
+    conn = get_db()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT p.*, COUNT(r.id) as review_count 
+        FROM products p 
+        LEFT JOIN reviews r ON p.product_id = r.product_id 
+        GROUP BY p.product_id 
+        ORDER BY p.id DESC
+    """)
+    products = cursor.fetchall()
+
+    conn.close()
+
+    return templates.TemplateResponse("products.jinja2", {"request": request, "products": products})
+
 @app.get("/dashboard", response_class=HTMLResponse)
 def dashboard(request: Request):
     conn = get_db()
     cursor = conn.cursor()
 
-    cursor.execute("SELECT sentiment, rating FROM reviews")
+    cursor.execute("""
+        SELECT r.sentiment, r.rating, p.product_name 
+        FROM reviews r 
+        LEFT JOIN products p ON r.product_id = p.product_id
+    """)
     rows = cursor.fetchall()
 
     conn.close()
@@ -110,7 +173,8 @@ def clear_db():
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute("DELETE FROM reviews")
+    cursor.execute("DELETE FROM products")
     conn.commit()
     conn.close()
 
-    return RedirectResponse(url="/reviews", status_code=303)
+    return RedirectResponse(url="/", status_code=303)

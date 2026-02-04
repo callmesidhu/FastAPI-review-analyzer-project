@@ -8,40 +8,66 @@
 <body>
   <div class="container">
     <header>
-      <h1>🛍️ Amazon Customer Review Analysis</h1>
-      <p class="subtitle">Scrape and analyze customer reviews to gain business insights</p>
+      <h1>Amazon Customer Review Analysis</h1>
+      <p class="subtitle">Advanced web scraping and sentiment analysis for business intelligence</p>
     </header>
 
-    <div class="main-form">
-      <h2>📊 Start Your Analysis</h2>
-      <form action="/scrape" method="post">
-        <div class="form-group">
-          <label>Product Name (Optional):</label>
-          <input name="product_name" placeholder="e.g., VRPEFIT Smartwatch" value="VRPEFIT Smartwatch" />
+    <nav class="nav-bar">
+      <a href="/" class="nav-btn active">Home</a>
+      <a href="/products" class="nav-btn">Products</a>
+      <a href="/reviews" class="nav-btn">Reviews</a>
+      <a href="/dashboard" class="nav-btn">Dashboard</a>
+    </nav>
+
+    <div class="main-content">
+      <div class="main-form">
+        <div class="form-header">
+          <h2>Start Product Analysis</h2>
+          <p>Enter any Amazon product URL to analyze customer reviews and extract business insights</p>
         </div>
         
-        <div class="form-group">
-          <label>Amazon Product URL: <span class="required">*</span></label>
-          <input name="url" required placeholder="Paste your Amazon product URL here..." value="https://www.amazon.in/VRPEFIT-Activity-Fitness-smartwatch-Waterproof/dp/B0C89CM11C/ref=sr_1_4" />
-          <small>Example: https://www.amazon.in/product-name/dp/PRODUCT_ID</small>
+        <form action="/scrape" method="post">
+          <div class="form-group">
+            <label>Amazon Product URL <span class="required">*</span></label>
+            <input name="url" required placeholder="Paste your Amazon product URL here..." value="https://www.amazon.in/VRPEFIT-Activity-Fitness-smartwatch-Waterproof/dp/B0C89CM11C/ref=sr_1_4" />
+            <small>Example: https://www.amazon.in/product-name/dp/PRODUCT_ID</small>
+            <small class="info">System automatically detects duplicate products</small>
+          </div>
+
+          <button type="submit" class="btn-primary">
+            Analyze Product & Reviews
+          </button>
+        </form>
+      </div>
+
+      <div class="features">
+        <h3>Analysis Features</h3>
+        <div class="feature-grid">
+          <div class="feature-item">
+            <h4>Product Details</h4>
+            <p>Extract product name, price, and images</p>
+          </div>
+          <div class="feature-item">
+            <h4>Customer Reviews</h4>
+            <p>Scrape review titles, content, and ratings</p>
+          </div>
+          <div class="feature-item">
+            <h4>Sentiment Analysis</h4>
+            <p>Analyze positive and negative sentiment patterns</p>
+          </div>
+          <div class="feature-item">
+            <h4>Business Intelligence</h4>
+            <p>Generate statistical insights and trends</p>
+          </div>
         </div>
-
-        <button type="submit" class="scrape-btn">🔍 Start Scraping & Analysis</button>
-      </form>
-    </div>
-
-    <div class="navigation">
-      <h3>📋 Your Dashboard</h3>
-      <div class="nav-links">
-        <a href="/reviews" class="nav-btn">📄 View All Reviews</a>
-        <a href="/dashboard" class="nav-btn">📊 Analytics Dashboard</a>
-        <a href="/clear" class="nav-btn clear-btn">🗑️ Clear Data</a>
       </div>
     </div>
 
     <footer>
-      <p>💡 <strong>College Project:</strong> Web Scraping & Sentiment Analysis for Business Intelligence</p>
+      <p>College Project: Advanced Web Scraping & AI-powered Sentiment Analysis</p>
     </footer>
   </div>
+</body>
+</html>
 </body>
 </html>

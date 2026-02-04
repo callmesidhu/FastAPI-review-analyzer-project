@@ -1,28 +1,58 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Reviews</title>
+  <title>Reviews - Amazon Review Analysis</title>
   <link rel="stylesheet" href="/static/style.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 <body>
-  <h1>📄 Stored Reviews</h1>
+  <div class="container">
+    <header>
+      <h1>Customer Reviews</h1>
+      <p class="subtitle">Analyzed reviews with sentiment insights</p>
+    </header>
 
-  <div class="links">
-    <a href="/">🏠 Home</a>
-    <a href="/dashboard">📊 Dashboard</a>
-    <a href="/clear">🗑️ Clear DB</a>
-  </div>
+    <nav class="nav-bar">
+      <a href="/" class="nav-btn">Home</a>
+      <a href="/products" class="nav-btn">Products</a>
+      <a href="/reviews" class="nav-btn active">Reviews</a>
+      <a href="/dashboard" class="nav-btn">Dashboard</a>
+      <a href="/clear" class="nav-btn">Clear Data</a>
+    </nav>
 
-  {% for r in reviews %}
-    <div class="card">
-      <h3>{{ r["product_name"] }}</h3>
-      <h4>{{ r["review_title"] }}</h4>
-      <p>{{ r["review_text"] }}</p>
-
-      <p><b>⭐ Rating:</b> {{ r["rating"] }}</p>
-      <p><b>🧠 Sentiment:</b> {{ r["sentiment"] }} ({{ r["polarity"] }})</p>
+    <div class="main-content">
+      {% if reviews %}
+        {% for r in reviews %}
+          <div class="card">
+            <h3>{{ r.product_name or "Unknown Product" }}</h3>
+            <h4>{{ r.review_title }}</h4>
+            <p>{{ r.review_text }}</p>
+            
+            <div class="review-meta">
+              <div class="meta-item">
+                <strong>Rating:</strong> {{ r.rating }}/5
+              </div>
+              <div class="meta-item">
+                <strong>Sentiment:</strong> {{ r.sentiment }}
+              </div>
+              <div class="meta-item">
+                <strong>Polarity:</strong> {{ "%.2f"|format(r.polarity) }}
+              </div>
+            </div>
+          </div>
+        {% endfor %}
+      {% else %}
+        <div class="empty-state">
+          <h2>No Reviews Found</h2>
+          <p>Start by analyzing an Amazon product to see reviews here.</p>
+          <a href="/" class="btn-primary">Analyze Product</a>
+        </div>
+      {% endif %}
     </div>
-  {% endfor %}
 
+    <footer>
+      <p>College Project: Web Scraping & Sentiment Analysis for Business Intelligence</p>
+    </footer>
+  </div>
 </body>
 </html>
