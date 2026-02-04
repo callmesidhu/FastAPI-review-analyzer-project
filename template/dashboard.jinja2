@@ -1,13 +1,24 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Dashboard</title>
-    <link rel="stylesheet" href="/static/style.css">
+  <title>Dashboard</title>
+  <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-    <h1>📊 Dashboard Page</h1>
-    <p>This is dashboard.jinja2</p>
+  <h1>📊 Dashboard</h1>
 
-    <a href="/">Back to Home</a>
+  <div class="links">
+    <a href="/">🏠 Home</a>
+    <a href="/reviews">📄 Reviews</a>
+  </div>
+
+  <div class="card">
+    <p><b>Total Reviews:</b> {{ stats.total }}</p>
+    <p><b>✅ Positive:</b> {{ stats.positive }}</p>
+    <p><b>⚠️ Neutral:</b> {{ stats.neutral }}</p>
+    <p><b>❌ Negative:</b> {{ stats.negative }}</p>
+    <p><b>⭐ Avg Rating:</b> {{ stats.avg_rating }}</p>
+  </div>
+
 </body>
 </html>

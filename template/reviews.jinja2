@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Reviews</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <h1>📄 Stored Reviews</h1>
+
+  <div class="links">
+    <a href="/">🏠 Home</a>
+    <a href="/dashboard">📊 Dashboard</a>
+    <a href="/clear">🗑️ Clear DB</a>
+  </div>
+
+  {% for r in reviews %}
+    <div class="card">
+      <h3>{{ r["product_name"] }}</h3>
+      <h4>{{ r["review_title"] }}</h4>
+      <p>{{ r["review_text"] }}</p>
+
+      <p><b>⭐ Rating:</b> {{ r["rating"] }}</p>
+      <p><b>🧠 Sentiment:</b> {{ r["sentiment"] }} ({{ r["polarity"] }})</p>
+    </div>
+  {% endfor %}
+
+</body>
+</html>

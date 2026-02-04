@@ -1,19 +1,47 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>FastAPI + Jinja2 + SQLite</title>
-    <link rel="stylesheet" href="/static/style.css">
+  <title>Amazon Customer Review Analysis</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 <body>
-    <h1>✅ FastAPI + Jinja2 + SQLite</h1>
-    <p>Users from DB:</p>
+  <div class="container">
+    <header>
+      <h1>🛍️ Amazon Customer Review Analysis</h1>
+      <p class="subtitle">Scrape and analyze customer reviews to gain business insights</p>
+    </header>
 
-    <ul>
-        {% for user in users %}
-            <li>{{ user["id"] }} - {{ user["name"] }}</li>
-        {% endfor %}
-    </ul>
+    <div class="main-form">
+      <h2>📊 Start Your Analysis</h2>
+      <form action="/scrape" method="post">
+        <div class="form-group">
+          <label>Product Name (Optional):</label>
+          <input name="product_name" placeholder="e.g., VRPEFIT Smartwatch" value="VRPEFIT Smartwatch" />
+        </div>
+        
+        <div class="form-group">
+          <label>Amazon Product URL: <span class="required">*</span></label>
+          <input name="url" required placeholder="Paste your Amazon product URL here..." value="https://www.amazon.in/VRPEFIT-Activity-Fitness-smartwatch-Waterproof/dp/B0C89CM11C/ref=sr_1_4" />
+          <small>Example: https://www.amazon.in/product-name/dp/PRODUCT_ID</small>
+        </div>
 
-    <a href="/dashboard">Go to Dashboard</a>
+        <button type="submit" class="scrape-btn">🔍 Start Scraping & Analysis</button>
+      </form>
+    </div>
+
+    <div class="navigation">
+      <h3>📋 Your Dashboard</h3>
+      <div class="nav-links">
+        <a href="/reviews" class="nav-btn">📄 View All Reviews</a>
+        <a href="/dashboard" class="nav-btn">📊 Analytics Dashboard</a>
+        <a href="/clear" class="nav-btn clear-btn">🗑️ Clear Data</a>
+      </div>
+    </div>
+
+    <footer>
+      <p>💡 <strong>College Project:</strong> Web Scraping & Sentiment Analysis for Business Intelligence</p>
+    </footer>
+  </div>
 </body>
 </html>

@@ -3,6 +3,4 @@ uvicorn
 jinja2
 requests
 beautifulsoup4
-sqlalchemy
-vaderSentiment
-python-multipart
+textblob
