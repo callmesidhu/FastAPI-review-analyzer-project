@@ -52,6 +52,23 @@
           </div>
         </div>
 
+        {% if correlations %}
+        <div class="stats-grid animated-dashboard" style="grid-template-columns: 1fr 1fr; margin-bottom: 2rem;">
+          <div class="stat-card" style="text-align: left; padding: 1.5rem;">
+            <div style="color: var(--primary-color); font-size: 0.9rem; margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.5px;">Rating vs. Sentiment</div>
+            <div class="stat-value" style="font-size: 1.8rem;">r = {{ correlations.rating_sentiment.r }}</div>
+            <div style="color: var(--text-secondary); margin-top: 0.5rem; font-size: 0.95rem;">{{ correlations.rating_sentiment.text }}</div>
+            <div style="color: #5f6368; font-size: 0.8rem; margin-top: 0.2rem;">(p-value: {{ correlations.rating_sentiment.p }})</div>
+          </div>
+          <div class="stat-card" style="text-align: left; padding: 1.5rem;">
+            <div style="color: var(--primary-color); font-size: 0.9rem; margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.5px;">Rating vs. Length</div>
+            <div class="stat-value" style="font-size: 1.8rem;">r = {{ correlations.rating_length.r }}</div>
+            <div style="color: var(--text-secondary); margin-top: 0.5rem; font-size: 0.95rem;">{{ correlations.rating_length.text }}</div>
+            <div style="color: #5f6368; font-size: 0.8rem; margin-top: 0.2rem;">(p-value: {{ correlations.rating_length.p }})</div>
+          </div>
+        </div>
+        {% endif %}
+
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem;">
           <div class="chart-container">
             <h3 class="chart-title">Sentiment Distribution</h3>
@@ -66,6 +83,24 @@
         <div class="chart-container">
           <h3 class="chart-title">Sentiment vs Rating Analysis</h3>
           <canvas id="sentimentRatingChart" style="max-height: 300px;"></canvas>
+        </div>
+
+        <h2 style="margin-top: 3rem; margin-bottom: 1.5rem; color: var(--text-primary); font-size: 1.5rem;">Advanced Analysis (Matplotlib)</h2>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem;">
+          <div class="chart-container">
+            <h3 class="chart-title">Review Length Distribution</h3>
+            <img src="/plots/review_length" alt="Review Length Distribution" style="width: 100%; height: auto; border-radius: 8px;">
+          </div>
+          <div class="chart-container">
+            <h3 class="chart-title">Sentiment Polarity Distribution</h3>
+            <img src="/plots/sentiment_polarity" alt="Sentiment Polarity Distribution" style="width: 100%; height: auto; border-radius: 8px;">
+          </div>
+        </div>
+
+        <div class="chart-container" style="margin-bottom: 2rem;">
+          <h3 class="chart-title" style="text-align: center;">Review Length by Rating</h3>
+          <p style="text-align: center; color: var(--text-secondary); margin-bottom: 1rem;">Do people write more when they are angry or happy?</p>
+          <img src="/plots/length_by_rating" alt="Review Length by Rating" style="width: 100%; height: auto; border-radius: 8px;">
         </div>
 
         <script>

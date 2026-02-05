@@ -1,12 +1,17 @@
 from fastapi import FastAPI, Request, Form
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from configs.database import init_db, get_db
 from services.scraper import scrape_reviews, extract_product_details
 from services.sentiment import analyze_sentiment
-from services.stats import calculate_stats
+from services.stats import calculate_stats, calculate_correlations
+from services.plots import (
+    generate_review_length_plot, 
+    generate_sentiment_polarity_plot,
+    generate_length_by_rating_plot
+)
 
 app = FastAPI()
 
@@ -173,30 +178,9 @@ def get_product_reviews(product_id: str):
     conn.close()
     return reviews
 
-@app.get("/api/product-reviews/{product_id}")
-def get_product_reviews(product_id: str):
-    conn = get_db()
-    cursor = conn.cursor()
-
-    cursor.execute("""
-        SELECT review_title, review_text, rating, sentiment, polarity, created_at
-        FROM reviews 
-        WHERE product_id = ? 
-        ORDER BY id DESC
-        LIMIT 10
-    """, (product_id,))
-    
-    reviews = [{
-        "review_title": row["review_title"],
-        "review_text": row["review_text"],
-        "rating": row["rating"],
-        "sentiment": row["sentiment"],
-        "polarity": row["polarity"],
-        "created_at": row["created_at"]
-    } for row in cursor.fetchall()]
-    
     conn.close()
     return reviews
+
 
 @app.get("/dashboard", response_class=HTMLResponse)
 def dashboard(request: Request):
@@ -204,7 +188,7 @@ def dashboard(request: Request):
     cursor = conn.cursor()
 
     cursor.execute("""
-        SELECT r.sentiment, r.rating, p.product_name 
+        SELECT r.sentiment, r.rating, r.polarity, r.review_text, p.product_name 
         FROM reviews r 
         LEFT JOIN products p ON r.product_id = p.product_id
     """)
@@ -212,36 +196,12 @@ def dashboard(request: Request):
 
     conn.close()
 
-    reviews = [{"sentiment": r["sentiment"], "rating": r["rating"]} for r in rows]
+    reviews = [{"sentiment": r["sentiment"], "rating": r["rating"], "polarity": r["polarity"], "review_text": r["review_text"]} for r in rows]
     stats = calculate_stats(reviews)
+    correlations = calculate_correlations(reviews)
 
-    return templates.TemplateResponse("dashboard.jinja2", {"request": request, "stats": stats})
+    return templates.TemplateResponse("dashboard.jinja2", {"request": request, "stats": stats, "correlations": correlations})
 
-
-@app.get("/api/product-reviews/{product_id}")
-def get_product_reviews(product_id: str):
-    conn = get_db()
-    cursor = conn.cursor()
-
-    cursor.execute("""
-        SELECT review_title, review_text, rating, sentiment, polarity, created_at
-        FROM reviews 
-        WHERE product_id = ? 
-        ORDER BY id DESC
-        LIMIT 10
-    """, (product_id,))
-    
-    reviews = [{
-        "review_title": row["review_title"],
-        "review_text": row["review_text"],
-        "rating": row["rating"],
-        "sentiment": row["sentiment"],
-        "polarity": row["polarity"],
-        "created_at": row["created_at"]
-    } for row in cursor.fetchall()]
-    
-    conn.close()
-    return reviews
 
 @app.get("/clear")
 def clear_db():
@@ -253,3 +213,39 @@ def clear_db():
     conn.close()
 
     return RedirectResponse(url="/", status_code=303)
+
+
+@app.get("/plots/review_length")
+def plot_review_length():
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT review_text FROM reviews")
+    reviews = [{"review_text": row["review_text"]} for row in cursor.fetchall()]
+    conn.close()
+    
+    img = generate_review_length_plot(reviews)
+    return Response(content=img.getvalue(), media_type="image/png")
+
+
+@app.get("/plots/sentiment_polarity")
+def plot_sentiment_polarity():
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT polarity FROM reviews")
+    reviews = [{"polarity": row["polarity"]} for row in cursor.fetchall()]
+    conn.close()
+
+    img = generate_sentiment_polarity_plot(reviews)
+    return Response(content=img.getvalue(), media_type="image/png")
+
+
+@app.get("/plots/length_by_rating")
+def plot_length_by_rating():
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT rating, review_text FROM reviews")
+    reviews = [{"rating": row["rating"], "review_text": row["review_text"]} for row in cursor.fetchall()]
+    conn.close()
+
+    img = generate_length_by_rating_plot(reviews)
+    return Response(content=img.getvalue(), media_type="image/png")
