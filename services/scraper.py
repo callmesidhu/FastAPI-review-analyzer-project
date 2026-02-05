@@ -91,140 +91,165 @@ def extract_product_details(url):
             "product_price": "Price not available"
         }
 
-def scrape_reviews(url: str, product_id=None, limit=10):
+def scrape_reviews(url: str, product_id=None, limit=100):
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
         "Accept-Language": "en-US,en;q=0.9",
         "Accept-Encoding": "gzip, deflate, br",
-        "DNT": "1",
         "Connection": "keep-alive",
-        "Upgrade-Insecure-Requests": "1"
+        "Upgrade-Insecure-Requests": "1",
+        "Sec-Fetch-Dest": "document",
+        "Sec-Fetch-Mode": "navigate",
+        "Sec-Fetch-Site": "none",
+        "Sec-Fetch-User": "?1",
+        "Cache-Control": "max-age=0",
     }
 
     try:
-        # Add small delay to avoid being blocked
-        time.sleep(1)
+        # Add delay to avoid being blocked
+        time.sleep(2)
         
-        # Check if URL needs to be modified to go to reviews page
-        if "/dp/" in url and "customerreviews" not in url:
-            # Extract product ID and create reviews URL
-            product_id = url.split("/dp/")[1].split("/")[0].split("?")[0]
-            url = f"https://www.amazon.in/product-reviews/{product_id}/ref=cm_cr_dp_d_show_all_btm?ie=UTF8&reviewerType=all_reviews"
+        # Ensure we are checking the main product page or reviews page
+        print(f"📡 Processing URL: {url}")
         
-        print(f"📡 Fetching reviews from: {url}")
-        res = requests.get(url, headers=headers, timeout=15)
+        target_url = url
+        # If it's a direct product link, try to construct the reviews URL
+        if "/dp/" in url and "product-reviews" not in url:
+            try:
+                # Extract clean product ID
+                prod_id = url.split("/dp/")[1].split("/")[0].split("?")[0]
+                target_url = f"https://www.amazon.in/product-reviews/{prod_id}/ref=cm_cr_dp_d_show_all_btm?ie=UTF8&reviewerType=all_reviews"
+            except:
+                pass # Fallback to original URL if extraction fails
+        
+        print(f"📡 Fetching reviews from: {target_url}")
+        res = requests.get(target_url, headers=headers, timeout=15)
+        
+        # Check for bot detection/captcha (status 503 or 200 with captcha text)
+        if res.status_code == 503 or "Enter the characters you see below" in res.text:
+            print("⚠️ Amazon blocked the request (Captcha/Bot Detection).")
+            # In a real scenario, we might use proxies or a browser automation tool here.
+            # For now, we will return an empty list or specific error message review.
+            return [{
+                "product_id": product_id,
+                "review_title": "Access Restricted",
+                "review_text": "Amazon blocked the automated request. Please try again later or with a different product.",
+                "rating": 1.0
+            }]
+
         res.raise_for_status()
         
         soup = BeautifulSoup(res.text, "html.parser")
         reviews = []
 
-        # Multiple selectors to try for Amazon reviews
+        # Updated selectors for 2024/2025 Amazon structure
         review_selectors = [
             "div[data-hook='review']",
-            "div.review",
             "div.a-section.review",
-            "[data-hook='review-body'] span"
+            "div[id^='customer_review']" 
         ]
         
-        review_blocks = []
-        for selector in review_selectors:
-            review_blocks = soup.select(selector)
-            if review_blocks:
-                print(f"✅ Found {len(review_blocks)} reviews using selector: {selector}")
+        while len(reviews) < limit:
+            print(f"Scraping page {page_num} for URL: {target_url}")
+            
+            # Find elements on current page
+            page_blocks = []
+            for selector in review_selectors:
+                elements = soup.select(selector)
+                if elements:
+                    print(f"✅ Found {len(elements)} reviews on page {page_num}")
+                    page_blocks = elements
+                    break
+            
+            if not page_blocks:
+                print(f"⚠️ No reviews found on page {page_num}")
                 break
-        
-        if not review_blocks:
-            print("⚠️ No review blocks found. Trying alternative approach...")
-            # Try to find any text that looks like reviews
-            review_texts = soup.find_all(text=re.compile(r'.{50,}'))
-            for i, text in enumerate(review_texts[:limit]):
-                if len(text.strip()) > 50:
+
+            for block in page_blocks:
+                try:
+                    if len(reviews) >= limit:
+                        break
+
+                    # Title
+                    title_elem = block.select_one("[data-hook='review-title']") or \
+                                 block.select_one(".review-title")
+                    
+                    review_title = "Review"
+                    if title_elem:
+                        review_title = title_elem.get_text(strip=True)
+                        review_title = re.sub(r'^\d\.\d out of 5 stars\s*', '', review_title) # clean stars
+                        review_title = re.sub(r'^\d\.\d out of 5 stars', '', review_title) # double check
+
+                    # Text
+                    text_elem = block.select_one("[data-hook='review-body']") or \
+                                block.select_one(".review-text-content")
+                    
+                    review_text = "No review text."
+                    if text_elem:
+                        # Use separator to avoid jamming words together
+                        review_text = text_elem.get_text(" ", strip=True)
+
+                    # Rating
+                    rating_value = 3.0
+                    rating_elem = block.select_one("[data-hook='review-star-rating']") or \
+                                  block.select_one(".a-icon-star")
+                    
+                    if rating_elem:
+                        rating_text = rating_elem.get_text(strip=True)
+                        match = re.search(r'(\d+(\.\d+)?)', rating_text)
+                        if match:
+                            rating_value = float(match.group(1))
+
                     reviews.append({
                         "product_id": product_id,
-                        "review_title": f"Review {i+1}",
-                        "review_text": text.strip()[:500],
-                        "rating": 3.0  # Default rating
+                        "review_title": review_title.strip(),
+                        "review_text": review_text,
+                        "rating": rating_value
                     })
-            return reviews
-
-        for i, block in enumerate(review_blocks[:limit]):
-            try:
-                # Try multiple selectors for title
-                title_selectors = [
-                    "[data-hook='review-title'] span",
-                    "[data-hook='review-title']",
-                    "h5 a span",
-                    ".review-title"
-                ]
-                title = None
-                for selector in title_selectors:
-                    title = block.select_one(selector)
-                    if title:
-                        break
-                
-                # Try multiple selectors for review text  
-                text_selectors = [
-                    "[data-hook='review-body'] span",
-                    "[data-hook='review-body']",
-                    ".review-text",
-                    "span[data-hook='review-body']"
-                ]
-                text = None
-                for selector in text_selectors:
-                    text = block.select_one(selector)
-                    if text and len(text.get_text(strip=True)) > 10:
-                        break
-                
-                # Try multiple selectors for rating
-                rating_selectors = [
-                    "[data-hook='review-star-rating'] span",
-                    "[data-hook='review-star-rating']",
-                    ".review-rating",
-                    "i.a-icon-star span"
-                ]
-                rating = None
-                for selector in rating_selectors:
-                    rating = block.select_one(selector)
-                    if rating:
-                        break
-
-                # Extract rating number
-                rating_value = 0.0
-                if rating:
-                    rating_text = rating.get_text(strip=True)
-                    rating_match = re.search(r'(\d+\.\d+|\d+)', rating_text)
-                    if rating_match:
-                        rating_value = float(rating_match.group(1))
-
-                review_title = title.get_text(strip=True) if title else f"Review {i+1}"
-                review_text = text.get_text(" ", strip=True) if text else "No review text found"
-                
-                # Skip if review text is too short
-                if len(review_text) < 10:
+                except Exception as e:
+                    print(f"⚠️ Error processing review: {e}")
                     continue
+            
+            print(f"Collected {len(reviews)}/{limit} reviews so far.")
+            
+            if len(reviews) >= limit:
+                break
+
+            # Pagination Logic
+            next_page = soup.select_one("li.a-last a") or soup.select_one("a.a-pagination-next")
+            if next_page and 'href' in next_page.attrs:
+                next_url = urljoin("https://www.amazon.in", next_page['href'])
+                print(f"Navigating to next page: {next_url}")
+                time.sleep(random.uniform(2, 5)) 
+                
+                try:
+                    res = requests.get(next_url, headers=headers, timeout=15)
+                    # Check for blocking again
+                    if res.status_code == 503 or "Enter the characters you see below" in res.text:
+                        print("⚠️ Amazon blocked the next page request.")
+                        break
                     
-                reviews.append({
-                    "product_id": product_id,
-                    "review_title": review_title,
-                    "review_text": review_text,
-                    "rating": rating_value
-                })
-                
-                print(f"📝 Scraped review {i+1}: {review_title[:30]}...")
-                
-            except Exception as e:
-                print(f"⚠️ Error processing review {i+1}: {str(e)}")
-                continue
-        
+                    res.raise_for_status()
+                    soup = BeautifulSoup(res.text, "html.parser")
+                    page_num += 1
+                    target_url = next_url # Update for logging
+                except Exception as e:
+                    print(f"Failed to fetch next page: {e}")
+                    break
+            else:
+                print("No next page found.")
+                break
+
         print(f"✅ Successfully scraped {len(reviews)} reviews")
         return reviews
         
     except Exception as e:
         print(f"❌ Error scraping reviews: {str(e)}")
-        # Return some sample data for testing
+        # Return proper error structure
         return [{
             "product_id": product_id,
-            "review_title": "Sample Review (Scraping Failed)",
-            "review_text": f"Unable to scrape live reviews due to: {str(e)}. This is a sample review for testing purposes.",
-            "rating": 4.0
+            "review_title": "Scraping Error",
+            "review_text": f"Failed to retrieve reviews: {str(e)}",
+            "rating": 0.0
         }]

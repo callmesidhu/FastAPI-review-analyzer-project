@@ -51,21 +51,10 @@
                   <a href="{{ product.product_url }}" target="_blank" class="btn-secondary">
                     <span></span> View on Amazon
                   </a>
-                  <button class="btn-secondary review-toggle" onclick="toggleReviews('{{ product.product_id }}')">
-                    <span></span> <span class="toggle-text">Show Reviews</span>
+                  <!-- Open Modal Button -->
+                  <button class="btn-secondary review-toggle" onclick="openReviewsModal('{{ product.product_id }}', '{{ product.product_name|escape }}')">
+                    <span></span> Show Reviews
                   </button>
-                </div>
-                
-                <!-- Reviews Dropdown -->
-                <div class="reviews-dropdown" id="reviews-{{ product.product_id }}" style="display: none;">
-                  <div class="reviews-header">
-                    <h4>Customer Reviews</h4>
-                  </div>
-                  <div class="reviews-loading">
-                    <div class="loading-spinner"></div>
-                    <p>Loading reviews...</p>
-                  </div>
-                  <div class="reviews-content"></div>
                 </div>
               </div>
             </div>
@@ -83,131 +72,131 @@
       {% endif %}
     </div>
 
+    <!-- Review Modal Structure -->
+    <div id="reviewModal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 id="modalProductTitle">Product Reviews</h4>
+                <button class="close-modal" onclick="closeReviewsModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="modalLoading" class="reviews-loading">
+                    <div class="loading-spinner"></div>
+                    <p>Loading reviews...</p>
+                </div>
+                <div id="modalReviewsList"></div>
+            </div>
+        </div>
+    </div>
 
   </div>
 
   <script>
     // Animation on page load
     document.addEventListener('DOMContentLoaded', function() {
+      // (Existing animation code remains same)
       const header = document.querySelector('.animated-header');
       const products = document.querySelectorAll('.product-card');
       const emptyState = document.querySelector('.animated-empty');
       
-      // Animate header
       if (header) {
         header.style.transform = 'translateY(-30px)';
         header.style.opacity = '0';
         setTimeout(() => {
-          header.style.transition = 'all 0.6s ease';
-          header.style.transform = 'translateY(0)';
-          header.style.opacity = '1';
+            header.style.transition = 'all 0.6s ease';
+            header.style.transform = 'translateY(0)';
+            header.style.opacity = '1';
         }, 100);
       }
       
-      // Animate product cards
       products.forEach((card, index) => {
         card.style.transform = 'translateY(30px)';
         card.style.opacity = '0';
         setTimeout(() => {
-          card.style.transition = 'all 0.5s ease';
-          card.style.transform = 'translateY(0)';
-          card.style.opacity = '1';
+            card.style.transition = 'all 0.5s ease';
+            card.style.transform = 'translateY(0)';
+            card.style.opacity = '1';
         }, 200 + (index * 100));
       });
       
-      // Animate empty state
       if (emptyState) {
         emptyState.style.transform = 'scale(0.8)';
         emptyState.style.opacity = '0';
         setTimeout(() => {
-          emptyState.style.transition = 'all 0.6s ease';
-          emptyState.style.transform = 'scale(1)';
-          emptyState.style.opacity = '1';
+            emptyState.style.transition = 'all 0.6s ease';
+            emptyState.style.transform = 'scale(1)';
+            emptyState.style.opacity = '1';
         }, 300);
       }
     });
 
-    // Toggle reviews dropdown
-    async function toggleReviews(productId) {
-      const dropdown = document.getElementById(`reviews-${productId}`);
-      const toggleBtn = event.target.closest('.review-toggle');
-      const toggleText = toggleBtn.querySelector('.toggle-text');
-      
-      if (dropdown.style.display === 'none') {
-        dropdown.style.display = 'block';
-        toggleText.textContent = 'Hide Reviews';
-        
-        // Animate dropdown
-        dropdown.style.maxHeight = '0';
-        dropdown.style.overflow = 'hidden';
-        dropdown.style.transition = 'max-height 0.5s ease';
-        setTimeout(() => {
-          dropdown.style.maxHeight = '800px';
-        }, 50);
-        
-        // Load reviews if not already loaded
-        if (!dropdown.querySelector('.reviews-content').innerHTML) {
-          await loadReviews(productId);
+    // --- Modal Logic ---
+
+    async function openReviewsModal(productId, productName) {
+        const modal = document.getElementById('reviewModal');
+        const modalTitle = document.getElementById('modalProductTitle');
+        const modalLoading = document.getElementById('modalLoading');
+        const modalList = document.getElementById('modalReviewsList');
+
+        // Set content
+        modalTitle.textContent = productName;
+        modalList.innerHTML = ''; // Clear previous
+        modalLoading.style.display = 'block';
+
+        // Show Modal
+        modal.style.display = 'flex';
+
+        // Fetch Data
+        try {
+            const response = await fetch(`/api/product-reviews/${productId}`);
+            if (!response.ok) throw new Error("Failed to fetch reviews");
+            
+            const reviews = await response.json();
+            modalLoading.style.display = 'none';
+
+            if (reviews.length === 0) {
+                modalList.innerHTML = '<p class="no-reviews">No reviews found for this product.</p>';
+                return;
+            }
+
+            modalList.innerHTML = reviews.map(review => `
+              <div class="review-item">
+                <div class="review-header">
+                  <h5>${review.review_title || 'Customer Review'}</h5>
+                  <div class="review-rating">
+                    ${'★'.repeat(Math.ceil(review.rating || 0))}
+                    <span class="rating-text">(${review.rating || 0}/5)</span>
+                  </div>
+                </div>
+                <p class="review-text">${review.review_text || 'No review content available.'}</p>
+                <div class="review-meta">
+                  <span class="sentiment sentiment-${(review.sentiment || 'neutral').toLowerCase()}">
+                    ${review.sentiment === 'positive' ? 'Positive' : 
+                      review.sentiment === 'negative' ? 'Negative' : 'Neutral'}
+                  </span>
+                  <span class="confidence">Confidence: ${Math.round((review.polarity || 0) * 100)}%</span>
+                </div>
+              </div>
+            `).join('');
+
+        } catch (error) {
+            console.error(error);
+            modalLoading.style.display = 'none';
+            modalList.innerHTML = `<p class="error-message">Error loading reviews: ${error.message}</p>`;
         }
-      } else {
-        dropdown.style.maxHeight = '0';
-        setTimeout(() => {
-          dropdown.style.display = 'none';
-          toggleText.textContent = 'Show Reviews';
-        }, 500);
-      }
     }
 
-    // Load reviews for product
-    async function loadReviews(productId) {
-      const reviewsContent = document.querySelector(`#reviews-${productId} .reviews-content`);
-      const loadingDiv = document.querySelector(`#reviews-${productId} .reviews-loading`);
-      
-      console.log('Loading reviews for product ID:', productId);
-      
-      try {
-        const response = await fetch(`/api/product-reviews/${productId}`);
-        console.log('API Response status:', response.status);
-        
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
+    function closeReviewsModal() {
+        const modal = document.getElementById('reviewModal');
+        modal.style.display = 'none';
+    }
+
+    // Close on click outside
+    window.onclick = function(event) {
+        const modal = document.getElementById('reviewModal');
+        if (event.target == modal) {
+            closeReviewsModal();
         }
-        
-        const reviews = await response.json();
-        console.log('Received reviews:', reviews);
-        
-        loadingDiv.style.display = 'none';
-        
-        if (reviews.length === 0) {
-          reviewsContent.innerHTML = '<p class="no-reviews">No reviews found for this product.</p>';
-          return;
-        }
-        
-        reviewsContent.innerHTML = reviews.map(review => `
-          <div class="review-item">
-            <div class="review-header">
-              <h5>${review.review_title || 'Customer Review'}</h5>
-              <div class="review-rating">
-                ${'★'.repeat(Math.floor(review.rating || 0))}
-                <span class="rating-text">(${review.rating || 0}/5)</span>
-              </div>
-            </div>
-            <p class="review-text">${review.review_text || 'No review content available.'}</p>
-            <div class="review-meta">
-              <span class="sentiment sentiment-${(review.sentiment || 'neutral').toLowerCase()}">
-                ${review.sentiment === 'positive' ? 'Positive' : 
-                  review.sentiment === 'negative' ? 'Negative' : 'Neutral'}
-              </span>
-              <span class="confidence">Confidence: ${Math.round((review.polarity || 0) * 100)}%</span>
-            </div>
-          </div>
-        `).join('');
-        
-      } catch (error) {
-        console.error('Error loading reviews:', error);
-        loadingDiv.style.display = 'none';
-        reviewsContent.innerHTML = `<p class="error-message">Error loading reviews: ${error.message}. Please try again.</p>`;
-      }
     }
   </script>
 </body>

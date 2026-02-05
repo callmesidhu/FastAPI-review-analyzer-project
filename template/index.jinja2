@@ -36,17 +36,45 @@
           <p>Enter any Amazon product URL to extract customer insights and perform advanced sentiment analysis</p>
         </div>
         
-        <form action="/scrape" method="post">
+        <form action="/scrape" method="post" id="analyzeForm">
           <div class="form-group">
             <label>Amazon Product URL <span class="required">*</span></label>
-            <input name="url" required placeholder="Paste your Amazon product URL here..." value="" />
+            <input name="url" type="url" required placeholder="Paste your Amazon product URL here..." value="" />
             <small class="info">System automatically detects and prevents duplicate analysis</small>
           </div>
 
-          <button type="submit" class="btn-primary">
+          <button type="submit" class="btn-primary" id="analyzeBtn">
             Analyze Product & Extract Insights
           </button>
         </form>
+      </div>
+
+  
+    </div>
+
+  </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const form = document.getElementById('analyzeForm');
+  const btn = document.getElementById('analyzeBtn');
+
+  if (form && btn) {
+    form.addEventListener('submit', (e) => {
+      // Basic validation check - let HTML5 validation run first
+      if (form.checkValidity()) {
+        const urlInput = form.querySelector('input[name="url"]');
+        if (urlInput && urlInput.value.trim() !== '') {
+            // Show loading state
+            btn.classList.add('btn-loading');
+            // Prevent double submission if needed, though form submission usually navigates away
+            // btn.disabled = true; 
+        }
+      }
+    });
+  }
+});
+</script>
       </div>
 
   

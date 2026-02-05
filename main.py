@@ -51,7 +51,7 @@ def scrape(
         if existing_product:
             print(f"Product already exists: {existing_product['product_name']}")
             conn.close()
-            return RedirectResponse(url="/reviews?message=product_exists", status_code=303)
+            return RedirectResponse(url="/products?message=product_exists", status_code=303)
         
         # Extract product details
         product_details = extract_product_details(url)
@@ -75,12 +75,12 @@ def scrape(
         print(f"Product saved with ID: {product_id}")
         
         # Scrape reviews
-        raw_reviews = scrape_reviews(url=url, product_id=product_id, limit=10)
+        raw_reviews = scrape_reviews(url=url, product_id=product_id, limit=25)
         
         if not raw_reviews:
             print("No reviews found")
             conn.close()
-            return RedirectResponse(url="/reviews?error=no_reviews", status_code=303)
+            return RedirectResponse(url="/products?error=no_reviews", status_code=303)
         
         saved_count = 0
         for r in raw_reviews:
@@ -165,7 +165,7 @@ def get_product_reviews(product_id: str):
         FROM reviews 
         WHERE product_id = ? 
         ORDER BY id DESC
-        LIMIT 10
+        LIMIT 25
     """, (product_id,))
     
     rows = cursor.fetchall()
