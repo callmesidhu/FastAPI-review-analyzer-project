@@ -2,6 +2,8 @@ import requests
 from bs4 import BeautifulSoup
 import re
 import time
+import asyncio
+import random
 from urllib.parse import urljoin
 
 def extract_product_details(url):
@@ -91,7 +93,8 @@ def extract_product_details(url):
             "product_price": "Price not available"
         }
 
-def scrape_reviews(url: str, product_id=None, limit=100):
+
+async def scrape_reviews(url: str, product_id=None, limit=100):
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
@@ -108,10 +111,11 @@ def scrape_reviews(url: str, product_id=None, limit=100):
 
     try:
         # Add delay to avoid being blocked
-        time.sleep(2)
+        await asyncio.sleep(2)
         
         # Ensure we are checking the main product page or reviews page
         print(f"📡 Processing URL: {url}")
+        yield {"type": "progress", "count": 0, "total": limit, "message": f"Processing URL..."}
         
         target_url = url
         # If it's a direct product link, try to construct the reviews URL
@@ -124,24 +128,23 @@ def scrape_reviews(url: str, product_id=None, limit=100):
                 pass # Fallback to original URL if extraction fails
         
         print(f"📡 Fetching reviews from: {target_url}")
+        yield {"type": "progress", "count": 0, "total": limit, "message": "Fetching first page of reviews..."}
+        
+        # Note: requests is blocking. For full async benefit, use aiohttp/httpx.
+        # But this wrapper is enough to solve the "async for" TypeError.
         res = requests.get(target_url, headers=headers, timeout=15)
         
         # Check for bot detection/captcha (status 503 or 200 with captcha text)
         if res.status_code == 503 or "Enter the characters you see below" in res.text:
             print("⚠️ Amazon blocked the request (Captcha/Bot Detection).")
-            # In a real scenario, we might use proxies or a browser automation tool here.
-            # For now, we will return an empty list or specific error message review.
-            return [{
-                "product_id": product_id,
-                "review_title": "Access Restricted",
-                "review_text": "Amazon blocked the automated request. Please try again later or with a different product.",
-                "rating": 1.0
-            }]
+            yield {"type": "error", "message": "Amazon blocked the request (Captcha/Bot Detection)."}
+            return
 
         res.raise_for_status()
         
         soup = BeautifulSoup(res.text, "html.parser")
         reviews = []
+        page_num = 1
 
         # Updated selectors for 2024/2025 Amazon structure
         review_selectors = [
@@ -152,6 +155,7 @@ def scrape_reviews(url: str, product_id=None, limit=100):
         
         while len(reviews) < limit:
             print(f"Scraping page {page_num} for URL: {target_url}")
+            yield {"type": "progress", "count": len(reviews), "total": limit, "message": f"Scraping page {page_num}..."}
             
             # Find elements on current page
             page_blocks = []
@@ -212,6 +216,7 @@ def scrape_reviews(url: str, product_id=None, limit=100):
                     continue
             
             print(f"Collected {len(reviews)}/{limit} reviews so far.")
+            yield {"type": "progress", "count": len(reviews), "total": limit, "message": f"Collected {len(reviews)} reviews..."}
             
             if len(reviews) >= limit:
                 break
@@ -221,7 +226,7 @@ def scrape_reviews(url: str, product_id=None, limit=100):
             if next_page and 'href' in next_page.attrs:
                 next_url = urljoin("https://www.amazon.in", next_page['href'])
                 print(f"Navigating to next page: {next_url}")
-                time.sleep(random.uniform(2, 5)) 
+                await asyncio.sleep(random.uniform(2, 5)) 
                 
                 try:
                     res = requests.get(next_url, headers=headers, timeout=15)
@@ -242,14 +247,8 @@ def scrape_reviews(url: str, product_id=None, limit=100):
                 break
 
         print(f"✅ Successfully scraped {len(reviews)} reviews")
-        return reviews
+        yield {"type": "result", "reviews": reviews}
         
     except Exception as e:
         print(f"❌ Error scraping reviews: {str(e)}")
-        # Return proper error structure
-        return [{
-            "product_id": product_id,
-            "review_title": "Scraping Error",
-            "review_text": f"Failed to retrieve reviews: {str(e)}",
-            "rating": 0.0
-        }]
+        yield {"type": "error", "message": f"Failed to retrieve reviews: {str(e)}"}

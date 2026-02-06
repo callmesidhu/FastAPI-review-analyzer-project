@@ -1409,3 +1409,30 @@ tr:hover td {
   color: #3498db;
   border: 1px solid rgba(52, 152, 219, 0.2);
 }
+
+/* Progress Bar */
+.progress-container {
+  margin-top: 2rem;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: var(--radius-sm);
+  padding: 3px;
+  border: 1px solid var(--border-color);
+  display: none;
+  /* Hidden by default */
+}
+
+.progress-bar {
+  height: 10px;
+  background: var(--gradient-primary);
+  width: 0%;
+  border-radius: var(--radius-sm);
+  transition: width 0.3s ease;
+}
+
+.progress-text {
+  text-align: center;
+  margin-top: 0.5rem;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  font-family: monospace;
+}

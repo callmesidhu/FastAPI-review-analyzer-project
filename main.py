@@ -30,92 +30,121 @@ def index(request: Request):
     return templates.TemplateResponse("index.jinja2", {"request": request})
 
 
+import json
+import asyncio
+
+@app.post("/api/scrape")
+async def scrape_stream(request: Request):
+    form = await request.form()
+    url = form.get("url")
+    
+    if not url:
+         return Response(json.dumps({"error": "URL is required"}), media_type="application/json")
+
+    # Fix URL if it doesn't have protocol
+    if not url.startswith(('http://', 'https://')):
+        url = 'https://' + url
+            
+    print(f"Starting analysis for URL: {url}")
+
+    async def event_generator():
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        try:
+             # Check if product already exists
+            cursor.execute("SELECT product_id, product_name FROM products WHERE product_url = ?", (url,))
+            existing_product = cursor.fetchone()
+            
+            if existing_product:
+                print(f"Product already exists: {existing_product['product_name']}")
+                yield json.dumps({"type": "completed", "message": "Product already exists"}) + "\n"
+                return
+
+            yield json.dumps({"type": "progress", "count": 0, "total": 100, "message": "Extracting product details..."}) + "\n"
+            
+            # Extract product details
+            product_details = extract_product_details(url)
+            
+            # Insert product into database
+            cursor.execute("""
+                INSERT INTO products (product_name, product_url, product_image, product_price)
+                VALUES (?, ?, ?, ?)
+            """, (
+                product_details["product_name"],
+                product_details["product_url"],
+                product_details["product_image"],
+                product_details["product_price"]
+            ))
+            
+            # Get the product_id of the inserted product
+            cursor.execute("SELECT product_id FROM products WHERE product_url = ?", (url,))
+            product_record = cursor.fetchone()
+            product_id = product_record["product_id"]
+            
+            print(f"Product saved with ID: {product_id}")
+            
+            # Scrape reviews
+            reviews_generator = scrape_reviews(url=url, product_id=product_id, limit=100)
+            
+            raw_reviews = []
+            async for event in reviews_generator:
+                if event["type"] == "progress":
+                    yield json.dumps(event) + "\n"
+                elif event["type"] == "result":
+                    raw_reviews = event["reviews"]
+
+            if not raw_reviews:
+                 print("⚠️ No reviews found. Saving product details only.")
+                 yield json.dumps({"type": "progress", "count": 0, "total": 0, "message": "No reviews found. Saving product details only..."}) + "\n"
+            else:
+                yield json.dumps({"type": "progress", "count": len(raw_reviews), "total": 100, "message": "Creating sentiment analysis..."}) + "\n"
+
+            saved_count = 0
+            for r in raw_reviews:
+                try:
+                    sentiment, polarity = analyze_sentiment(r["review_text"])
+                    
+                    cursor.execute("""
+                        INSERT INTO reviews (product_id, review_title, review_text, rating, sentiment, polarity)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                    """, (
+                        r["product_id"],
+                        r["review_title"],
+                        r["review_text"],
+                        r["rating"],
+                        sentiment,
+                        polarity
+                    ))
+                    saved_count += 1
+                    
+                except Exception as e:
+                    print(f"Error saving review: {str(e)}")
+                    continue
+            
+            conn.commit()
+            print(f"Successfully saved product and {saved_count} reviews to database")
+            
+            completion_msg = "Analysis complete!"
+            if not raw_reviews:
+                completion_msg = "Product saved (no reviews found)."
+                
+            yield json.dumps({"type": "completed", "message": completion_msg}) + "\n"
+
+        except Exception as e:
+            print(f"Error in streaming scrape: {repr(e)}")
+            yield json.dumps({"type": "error", "message": f"{str(e)} ({type(e).__name__})"}) + "\n"
+        finally:
+            conn.close()
+
+    return StreamingResponse(event_generator(), media_type="application/x-ndjson")
+
 @app.post("/scrape")
 def scrape(
     url: str = Form(...)
 ):
-    try:
-        # Fix URL if it doesn't have protocol
-        if not url.startswith(('http://', 'https://')):
-            url = 'https://' + url
-            
-        print(f"Starting analysis for URL: {url}")
-        
-        conn = get_db()
-        cursor = conn.cursor()
-        
-        # Check if product already exists
-        cursor.execute("SELECT product_id, product_name FROM products WHERE product_url = ?", (url,))
-        existing_product = cursor.fetchone()
-        
-        if existing_product:
-            print(f"Product already exists: {existing_product['product_name']}")
-            conn.close()
-            return RedirectResponse(url="/products?message=product_exists", status_code=303)
-        
-        # Extract product details
-        product_details = extract_product_details(url)
-        
-        # Insert product into database
-        cursor.execute("""
-            INSERT INTO products (product_name, product_url, product_image, product_price)
-            VALUES (?, ?, ?, ?)
-        """, (
-            product_details["product_name"],
-            product_details["product_url"],
-            product_details["product_image"],
-            product_details["product_price"]
-        ))
-        
-        # Get the product_id of the inserted product
-        cursor.execute("SELECT product_id FROM products WHERE product_url = ?", (url,))
-        product_record = cursor.fetchone()
-        product_id = product_record["product_id"]
-        
-        print(f"Product saved with ID: {product_id}")
-        
-        # Scrape reviews
-        raw_reviews = scrape_reviews(url=url, product_id=product_id, limit=25)
-        
-        if not raw_reviews:
-            print("No reviews found")
-            conn.close()
-            return RedirectResponse(url="/products?error=no_reviews", status_code=303)
-        
-        saved_count = 0
-        for r in raw_reviews:
-            try:
-                sentiment, polarity = analyze_sentiment(r["review_text"])
-                
-                cursor.execute("""
-                    INSERT INTO reviews (product_id, review_title, review_text, rating, sentiment, polarity)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                """, (
-                    r["product_id"],
-                    r["review_title"],
-                    r["review_text"],
-                    r["rating"],
-                    sentiment,
-                    polarity
-                ))
-                saved_count += 1
-                print(f"Saved review: {r['review_title'][:30]}...")
-                
-            except Exception as e:
-                print(f"Error saving review: {str(e)}")
-                continue
-        
-        conn.commit()
-        conn.close()
-        
-        print(f"Successfully saved product and {saved_count} reviews to database")
-        return RedirectResponse(url="/products", status_code=303)
-        
-    except Exception as e:
-        print(f"Error in scrape route: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        return RedirectResponse(url="/products?error=scrape_failed", status_code=303)
+    # Backward compatibility or fallback
+    return RedirectResponse(url="/dashboard", status_code=303)
 
 
 @app.get("/reviews", response_class=HTMLResponse)
